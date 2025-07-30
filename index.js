@@ -16,132 +16,199 @@ const base64 = Buffer.from(`${username}:${password}`).toString("base64");
 
 // Função para autenticar e obter token
 async function autenticarCorreios() {
-  const response = await fetch(authURL, {
-    method: "POST",
-    headers: {
-      "Authorization": `Basic ${base64}`,
-      "Content-Type": "application/json",
-      "Accept": "application/json",
-    },
-    body: JSON.stringify({ numero: postalCardNumber }),
-  });
+    const response = await fetch(authURL, {
+        method: "POST",
+        headers: {
+            "Authorization": `Basic ${base64}`,
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        body: JSON.stringify({ numero: postalCardNumber }),
+    });
 
-  const texto = await response.text();
-  if (response.status === 201) {
-    const data = JSON.parse(texto);
-    return `Bearer ${data.token}`;
-  } else {
-    throw new Error("Erro ao autenticar nos Correios");
-  }
+    const texto = await response.text();
+    if (response.status === 201) {
+        const data = JSON.parse(texto);
+        return `Bearer ${data.token}`;
+    } else {
+        throw new Error("Erro ao autenticar nos Correios");
+    }
 }
 
 // Função para buscar rastreios
 async function buscarPPNDetalhes(codigos, token) {
-  const resultados = [];
+    const resultados = [];
 
-  for (const codigo of codigos) {
-    try {
-      const url = `https://api.correios.com.br/prepostagem/v2/prepostagens?codigoObjeto=${codigo}`;
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Authorization": token,
-          "Content-Type": "application/json",
-        },
-      });
+    for (const codigo of codigos) {
+        try {
+            const url = `https://api.correios.com.br/prepostagem/v2/prepostagens?codigoObjeto=${codigo}`;
+            const response = await fetch(url, {
+                method: "GET",
+                headers: {
+                    "Authorization": token,
+                    "Content-Type": "application/json",
+                },
+            });
 
-      const json = await response.json();
+            const json = await response.json();
 
-      if (response.ok) {
-        resultados.push({ codigo, success: true, data: json });
-      } else {
-        resultados.push({
-          codigo,
-          success: false,
-          error: json.messages || json.message || JSON.stringify(json),
-        });
-      }
-    } catch (err) {
-      resultados.push({ codigo, success: false, error: err.message });
+            if (response.ok) {
+                resultados.push({ codigo, success: true, data: json });
+            } else {
+                resultados.push({
+                    codigo,
+                    success: false,
+                    error: json.messages || json.message || JSON.stringify(json),
+                });
+            }
+        } catch (err) {
+            resultados.push({ codigo, success: false, error: err.message });
+        }
     }
-  }
 
-  return resultados;
+    return resultados;
 }
 
-// Rota GET /rastrear?codigos=AA123456789BR,BB987654321BR
+// Rota GET /rastrear?codigos=...
 app.get('/rastrear', async (req, res) => {
-  const { codigos } = req.query;
+    const { codigos } = req.query;
 
-  if (!codigos) {
-    return res.status(400).json({ error: "Parâmetro 'codigos' é obrigatório. Ex: /rastrear?codigos=XX123BR" });
-  }
+    if (!codigos) {
+        return res.status(400).json({ error: "Parâmetro 'codigos' é obrigatório. Ex: /rastrear?codigos=XX123BR" });
+    }
 
-  const listaCodigos = codigos.split(',').map(c => c.trim());
+    const listaCodigos = codigos.split(',').map(c => c.trim());
 
-  try {
-    const token = await autenticarCorreios();
-    const resultados = await buscarPPNDetalhes(listaCodigos, token);
-    res.json(resultados);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+    try {
+        const token = await autenticarCorreios();
+        const resultados = await buscarPPNDetalhes(listaCodigos, token);
+        res.json(resultados);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
-// NOVO endpoint para baixar a planilha XLSX dos rastreios
-// Rota GET /baixar-planilha?codigos=AA123456789BR,BB987654321BR
+// Rota GET /baixar-planilha?codigos=...
 app.get('/baixar-planilha', async (req, res) => {
-  const { codigos } = req.query;
+    const { codigos } = req.query;
 
-  if (!codigos) {
-    return res.status(400).json({ error: "Parâmetro 'codigos' é obrigatório. Ex: /baixar-planilha?codigos=XX123BR" });
-  }
+    if (!codigos) {
+        return res.status(400).json({ error: "Parâmetro 'codigos' é obrigatório. Ex: /baixar-planilha?codigos=XX123BR" });
+    }
 
-  const listaCodigos = codigos.split(',').map(c => c.trim());
+    const listaCodigos = codigos.split(',').map(c => c.trim());
 
-  try {
-    const token = await autenticarCorreios();
-    const resultados = await buscarPPNDetalhes(listaCodigos, token);
+    try {
+        const token = await autenticarCorreios();
+        const resultados = await buscarPPNDetalhes(listaCodigos, token);
 
-    // Transformar os dados para um formato simples para a planilha
-    const planilhaDados = resultados.map(item => {
-      if (item.success) {
-        // Você pode ajustar aqui conforme o que deseja extrair do JSON de dados
-        return {
-          Código: item.codigo,
-          Status: JSON.stringify(item.data.status || item.data), // Exemplo simplificado
-          // Pode extrair outras propriedades aqui
-        };
-      } else {
-        return {
-          Código: item.codigo,
-          Status: "Erro",
-          MensagemErro: item.error,
-        };
-      }
-    });
+        resultados.forEach(item => {
+            if (item.success && item.data && item.data.itens && item.data.itens.length > 0) {
+                console.log('Dados do objeto:', item.data.itens[0]);
+            } else {
+                console.log(`Erro ou dados não encontrados para o código: ${item.codigo}`);
+            }
+        });
 
-    // Criar worksheet e workbook
-    const ws = xlsx.utils.json_to_sheet(planilhaDados);
-    const wb = xlsx.utils.book_new();
-    xlsx.utils.book_append_sheet(wb, ws, 'Rastreios');
 
-    // Gerar buffer XLSX
-    const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+        // Transformar os dados para a planilha com base em item.data.itens[0]
+        const planilhaDados = resultados.map(item => {
+            if (item.success) {
+                const dados = item.data?.itens?.[0];
 
-    // Cabeçalhos para forçar download do arquivo
-    res.setHeader('Content-Disposition', 'attachment; filename=rastreios.xlsx');
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                if (!dados) {
+                    return {
+                        'Código do Objeto': item.codigo,
+                        'Status': 'Não encontrado',
+                        'Remetente': '---',
+                        'Destinatário': '---',
+                        'UF': '---',
+                        'Cidade': '---',
+                        'Data do Status': '---',
+                        'Serviço': '---',
+                        'Peso (g)': '---',
+                    };
+                }
 
-    // Enviar o arquivo para o cliente
-    res.send(buffer);
+                return {
+                    'Código do Objeto': dados.codigoObjeto || item.codigo,
+                    'Status': dados.descStatusAtual || '---',
+                    'Remetente': dados.remetente?.nome || '---',
+                    'Remetente CNPJ': dados.remetente?.cpfCnpj || '---',
+                    'Logradouro Remetente': dados.remetente?.endereco?.logradouro || '---',
+                    'Número Remetente': dados.remetente?.endereco?.numero || '---',
+                    'Complemento Remetente': dados.remetente?.endereco?.complemento || '---',
+                    'Bairro Remetente': dados.remetente?.endereco?.bairro || '---',
+                    'Cidade Remetente': dados.remetente?.endereco?.cidade || '---',
+                    'CEP Remetente': dados.remetente?.endereco?.cep || '---',
+                    'UF Remetente': dados.remetente?.endereco?.uf || '---',
+                    'Destinatário': dados.destinatario?.nome || '---',
+                    'UF Destinatário': dados.destinatario?.endereco?.uf || '---',
+                    'Cidade Destinatário': dados.destinatario?.endereco?.cidade || '---',
+                    'Data do Status': dados.dataHoraStatusAtual?.split('T')[0] || '---',
+                    'Serviço': dados.servico || '---',
+                    'Peso Informado (g)': dados.pesoInformado || '---',
+                    'Peso Aferição (g)': dados.pesoPreAfericao || '---',
+                    'Altura Informada': dados.alturaInformada || '---',
+                    'Altura Aferição': dados.alturaPreAfericao || '---',
+                    'Largura Informada': dados.larguraInformada || '---',
+                    'Largura Aferição': dados.larguraPreAfericao || '---',
+                    'Comprimento Informado': dados.comprimentoInformado || '---',
+                    'Comprimento Aferição': dados.comprimentoPreAfericao || '---',
+                };
 
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+            } else {
+                return {
+                    'Código do Objeto': dados.codigoObjeto || item.codigo,
+                    'Status': dados.descStatusAtual || '---',
+                    'Remetente': dados.remetente?.nome || '---',
+                    'Remetente CNPJ': dados.remetente?.cpfCnpj || '---',
+                    'Logradouro Remetente': dados.remetente?.endereco?.logradouro || '---',
+                    'Número Remetente': dados.remetente?.endereco?.numero || '---',
+                    'Complemento Remetente': dados.remetente?.endereco?.complemento || '---',
+                    'Bairro Remetente': dados.remetente?.endereco?.bairro || '---',
+                    'Cidade Remetente': dados.remetente?.endereco?.cidade || '---',
+                    'CEP Remetente': dados.remetente?.endereco?.cep || '---',
+                    'UF Remetente': dados.remetente?.endereco?.uf || '---',
+                    'Destinatário': dados.destinatario?.nome || '---',
+                    'UF Destinatário': dados.destinatario?.endereco?.uf || '---',
+                    'Cidade Destinatário': dados.destinatario?.endereco?.cidade || '---',
+                    'Data do Status': dados.dataHoraStatusAtual?.split('T')[0] || '---',
+                    'Serviço': dados.servico || '---',
+                    'Peso Informado (g)': dados.pesoInformado || '---',
+                    'Peso Aferição (g)': dados.pesoPreAfericao || '---',
+                    'Altura Informada': dados.alturaInformada || '---',
+                    'Altura Aferição': dados.alturaPreAfericao || '---',
+                    'Largura Informada': dados.larguraInformada || '---',
+                    'Largura Aferição': dados.larguraPreAfericao || '---',
+                    'Comprimento Informado': dados.comprimentoInformado || '---',
+                    'Comprimento Aferição': dados.comprimentoPreAfericao || '---',
+                };
+
+            }
+        });
+
+
+
+        // Criar worksheet e workbook
+        const ws = xlsx.utils.json_to_sheet(planilhaDados);
+        const wb = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(wb, ws, 'Rastreios');
+
+        // Gerar buffer XLSX
+        const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+        // Cabeçalhos para forçar download
+        res.setHeader('Content-Disposition', 'attachment; filename=rastreios.xlsx');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buffer);
+
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // Inicia servidor
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+    console.log(`🚀 Servidor rodando na porta ${PORT}`);
 });
