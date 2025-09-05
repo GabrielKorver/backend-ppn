@@ -107,40 +107,10 @@ app.get("/baixar-planilha", async (req, res) => {
     const token = await autenticarCorreios();
     const resultados = await buscarPPNDetalhes(listaCodigos, token);
 
-    resultados.forEach((item) => {
-      if (
-        item.success &&
-        item.data &&
-        item.data.itens &&
-        item.data.itens.length > 0
-      ) {
-        console.log("Dados do objeto:", item.data.itens[0]);
-      } else {
-        console.log(
-          `Erro ou dados não encontrados para o código: ${item.codigo}`
-        );
-      }
-    });
-
-    // Transformar os dados para a planilha com base em item.data.itens[0]
     const planilhaDados = resultados.map((item) => {
-      if (item.success) {
-        const dados = item.data?.itens?.[0];
+      const dados = item.data?.itens?.[0];
 
-        if (!dados) {
-          return {
-            "Código do Objeto": item.codigo,
-            Status: "Não encontrado",
-            Remetente: "---",
-            Destinatário: "---",
-            UF: "---",
-            Cidade: "---",
-            "Data do Status": "---",
-            Serviço: "---",
-            "Peso (g)": "---",
-          };
-        }
-
+      if (item.success && dados) {
         return {
           "Código do Objeto": dados.codigoObjeto || item.codigo,
           Status: dados.descStatusAtual || "---",
@@ -170,33 +140,32 @@ app.get("/baixar-planilha", async (req, res) => {
           "Comprimento Aferição": dados.comprimentoPreAfericao || "---",
         };
       } else {
+        // Caso não encontre o rastreio, apenas preenche os campos com "---"
         return {
-          "Código do Objeto": dados.codigoObjeto || item.codigo,
-          Status: dados.descStatusAtual || "---",
-          Remetente: dados.remetente?.nome || "---",
-          "Remetente CNPJ": dados.remetente?.cpfCnpj || "---",
-          "Logradouro Remetente":
-            dados.remetente?.endereco?.logradouro || "---",
-          "Número Remetente": dados.remetente?.endereco?.numero || "---",
-          "Complemento Remetente":
-            dados.remetente?.endereco?.complemento || "---",
-          "Bairro Remetente": dados.remetente?.endereco?.bairro || "---",
-          "Cidade Remetente": dados.remetente?.endereco?.cidade || "---",
-          "CEP Remetente": dados.remetente?.endereco?.cep || "---",
-          "UF Remetente": dados.remetente?.endereco?.uf || "---",
-          Destinatário: dados.destinatario?.nome || "---",
-          "UF Destinatário": dados.destinatario?.endereco?.uf || "---",
-          "Cidade Destinatário": dados.destinatario?.endereco?.cidade || "---",
-          "Data do Status": dados.dataHoraStatusAtual?.split("T")[0] || "---",
-          Serviço: dados.servico || "---",
-          "Peso Informado (g)": dados.pesoInformado || "---",
-          "Peso Aferição (g)": dados.pesoPreAfericao || "---",
-          "Altura Informada": dados.alturaInformada || "---",
-          "Altura Aferição": dados.alturaPreAfericao || "---",
-          "Largura Informada": dados.larguraInformada || "---",
-          "Largura Aferição": dados.larguraPreAfericao || "---",
-          "Comprimento Informado": dados.comprimentoInformado || "---",
-          "Comprimento Aferição": dados.comprimentoPreAfericao || "---",
+          "Código do Objeto": item.codigo,
+          Status: "Não encontrado",
+          Remetente: "---",
+          "Remetente CNPJ": "---",
+          "Logradouro Remetente": "---",
+          "Número Remetente": "---",
+          "Complemento Remetente": "---",
+          "Bairro Remetente": "---",
+          "Cidade Remetente": "---",
+          "CEP Remetente": "---",
+          "UF Remetente": "---",
+          Destinatário: "---",
+          "UF Destinatário": "---",
+          "Cidade Destinatário": "---",
+          "Data do Status": "---",
+          Serviço: "---",
+          "Peso Informado (g)": "---",
+          "Peso Aferição (g)": "---",
+          "Altura Informada": "---",
+          "Altura Aferição": "---",
+          "Largura Informada": "---",
+          "Largura Aferição": "---",
+          "Comprimento Informado": "---",
+          "Comprimento Aferição": "---",
         };
       }
     });
