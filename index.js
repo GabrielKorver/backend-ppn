@@ -114,6 +114,7 @@ app.get("/baixar-planilha", async (req, res) => {
         return {
           "Código do Objeto": dados.codigoObjeto || item.codigo,
           Status: dados.descStatusAtual || "---",
+          "Data Postagem": dados.dataHoraPreAfericao || "---",
           Remetente: dados.remetente?.nome || "---",
           "Remetente CNPJ": dados.remetente?.cpfCnpj || "---",
           "Logradouro Remetente":
@@ -144,6 +145,7 @@ app.get("/baixar-planilha", async (req, res) => {
         return {
           "Código do Objeto": item.codigo,
           Status: "Não encontrado",
+          "Data Postagem": "---",
           Remetente: "---",
           "Remetente CNPJ": "---",
           "Logradouro Remetente": "---",
@@ -182,7 +184,7 @@ app.get("/baixar-planilha", async (req, res) => {
     res.setHeader("Content-Disposition", "attachment; filename=rastreios.xlsx");
     res.setHeader(
       "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
     res.send(buffer);
   } catch (error) {
@@ -330,11 +332,11 @@ app.get("/baixar-planilha-status", async (req, res) => {
     // Cabeçalhos para forçar download
     res.setHeader(
       "Content-Disposition",
-      "attachment; filename=status-rastreio.xlsx"
+      "attachment; filename=status-rastreio.xlsx",
     );
     res.setHeader(
       "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
     res.send(buffer);
   } catch (error) {
